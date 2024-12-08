@@ -74,39 +74,136 @@ while i <= len(mon):
         print(temtInf)
 
 ```
+- Ссылка на таблицу https://docs.google.com/spreadsheets/d/1-vJK6hDf-80F_CZ5Hg67bnSOqQuGhA3SqHiq_2yItb8/edit?usp=sharing
+- Характер изменения: количество монет резко изменяется от одного периода к другому. Есть как периоды значительного прироста (например, в 6 и 8 интервалах), так и периоды крупных потерь (5 и 11 интервалы).
+- недостатки в реализации:
+- 1) Отсутствие предсказуемости: непредсказуемые резкие скачки и падения затрудняют контроль игрока над своими ресурсами и могут вызывать фрустрацию.
+  2) резмерные колебания: сильные положительные или отрицательные изменения (например, в 6 и 11 интервалах) нарушают баланс игры. Игрок может слишком быстро обогатиться (что снижает вызов игры) или потерять все ресурсы, что может демотивировать.
+  3) Риск эксплойтов: резкий прирост монет в 6 интервале может быть связан с эксплуатацией определённых игровых механик. Например, если есть механика "фарма", игрок мог обнаружить способ быстро накапливать монеты без усилий.
+- Предложения по модификации условий работы с переменной: установить максимальные значения прироста или убытка монет за единицу времени, добавить новые перки, связанные с фармом монет, увеличение стоимости товара за каждую покупку.
 
 
 ## Задание 3
-### Какова роль параметра Lr? Ответьте на вопрос, приведите пример выполнения кода, который подтверждает ваш ответ. В качестве эксперимента можете изменить значение параметра.
+### Настройте на сцене Unity воспроизведение звуковых файлов, описывающих динамику изменения выбранной переменной. Например, если выбрано здоровье главного персонажа вы можете выводить сообщения, связанные с его состоянием.
 
-- Перечисленные в этом туториале действия могут быть выполнены запуском на исполнение скрипт-файла, доступного [в репозитории](https://github.com/Den1sovDm1triy/hfss-scripting/blob/main/ScreatingSphereInAEDT.py).
-- Для запуска скрипт-файла откройте Ansys Electronics Desktop. Перейдите во вкладку [Automation] - [Run Script] - [Выберите файл с именем ScreatingSphereInAEDT.py из репозитория].
+- Создаем пустой объект, добавляем ему Audio Source и пишем скрипт.
 
-```py
+```csharp
 
-import ScriptEnv
-ScriptEnv.Initialize("Ansoft.ElectronicsDesktop")
-oDesktop.RestoreWindow()
-oProject = oDesktop.NewProject()
-oProject.Rename("C:/Users/denisov.dv/Documents/Ansoft/SphereDIffraction.aedt", True)
-oProject.InsertDesign("HFSS", "HFSSDesign1", "HFSS Terminal Network", "")
-oDesign = oProject.SetActiveDesign("HFSSDesign1")
-oEditor = oDesign.SetActiveEditor("3D Modeler")
-oEditor.CreateSphere(
-	[
-		"NAME:SphereParameters",
-		"XCenter:="		, "0mm",
-		"YCenter:="		, "0mm",
-		"ZCenter:="		, "0mm",
-		"Radius:="		, "1.0770329614269mm"
-	], 
-)
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.Networking;
+using SimpleJSON;
+
+public class NewBehaviourScript : MonoBehaviour
+{
+    public AudioClip purchase;
+    public AudioClip bigPurchase;
+    public AudioClip earnCoins;
+    public AudioClip earnManyCoins;
+    private AudioSource selectAudio;
+    private Dictionary<string, float> dataSet = new Dictionary<string, float>();
+    private bool statusStart = false;
+    private int i = 1;
+    
+    void Start()
+    {
+        StartCoroutine(GoogleSheets());
+    }
+
+    // Update is called once per frame
+    void Update()
+    {
+        if (dataSet["Mon_" + i.ToString()] <= -50 & statusStart == false & i != dataSet.Count)
+        {
+            StartCoroutine(PlaySelectAudioBigPurchase());
+            Debug.Log(dataSet["Mon_" + i.ToString()]);
+        }
+        if (dataSet["Mon_" + i.ToString()] < 0 & statusStart == false & i != dataSet.Count)
+        {
+            StartCoroutine(PlaySelectAudioPurchase());
+            Debug.Log(dataSet["Mon_" + i.ToString()]);
+        }
+        if (dataSet["Mon_" + i.ToString()] > 0 & dataSet["Mon_" + i.ToString()] < 50 & statusStart == false & i != dataSet.Count)
+        {
+            StartCoroutine(PlaySelectAudioEarnCoins());
+            Debug.Log(dataSet["Mon_" + i.ToString()]);
+        }
+        if (dataSet["Mon_" + i.ToString()] > 50 & statusStart == false & i != dataSet.Count)
+        {
+            StartCoroutine(PlaySelectAudioEarnManyCoins());
+            Debug.Log(dataSet["Mon_" + i.ToString()]);
+        }
+
+    }
+
+    IEnumerator GoogleSheets()
+    {
+        UnityWebRequest curResp = UnityWebRequest.Get("https://sheets.googleapis.com/v4/spreadsheets/1-vJK6hDf-80F_CZ5Hg67bnSOqQuGhA3SqHiq_2yItb8/values/Лист1?key=AIzaSyBxzmnI3uN2FtmmAua9BUPbOyV5Vy4j8a8");
+        yield return curResp.SendWebRequest();
+        string rawResp = curResp.downloadHandler.text;
+        var rawJson = JSON.Parse(rawResp);
+        foreach (var itemRawJson in rawJson["values"])
+        {
+            var parseJson = JSON.Parse(itemRawJson.ToString());
+            var selectRow = parseJson[0].AsStringList;
+            dataSet.Add(("Mon_" + selectRow[0]), float.Parse(selectRow[2]));
+        }
+    }
+
+    IEnumerator PlaySelectAudioPurchase()
+    {
+        statusStart = true;
+        selectAudio = GetComponent<AudioSource>();
+        selectAudio.clip = purchase;
+        selectAudio.Play();
+        yield return new WaitForSeconds(2);
+        statusStart = false;
+        i++;
+    }
+    
+    IEnumerator PlaySelectAudioBigPurchase()
+    {
+        statusStart = true;
+        selectAudio = GetComponent<AudioSource>();
+        selectAudio.clip = bigPurchase;
+        selectAudio.Play();
+        yield return new WaitForSeconds(2);
+        statusStart = false;
+        i++;
+    }
+    
+    IEnumerator PlaySelectAudioEarnCoins()
+    {
+        statusStart = true;
+        selectAudio = GetComponent<AudioSource>();
+        selectAudio.clip = earnCoins;
+        selectAudio.Play();
+        yield return new WaitForSeconds(2);
+        statusStart = false;
+        i++;
+    }
+    
+    IEnumerator PlaySelectAudioEarnManyCoins()
+    {
+        statusStart = true;
+        selectAudio = GetComponent<AudioSource>();
+        selectAudio.clip = earnManyCoins;
+        selectAudio.Play();
+        yield return new WaitForSeconds(2);
+        statusStart = false;
+        i++;
+    }
+}
 
 ```
+- Скачиваем звуки и добавляем их к нашему скрипту
+
 
 ## Выводы
 
-Абзац умных слов о том, что было сделано и что было узнано.
+Научились передавать в Unity данные из Google Sheets с помощью Python и работать с ними. Также проанализировал игровую валюту из игры и предложил пути развития этой переменной.
 
 | Plugin | README |
 | ------ | ------ |
